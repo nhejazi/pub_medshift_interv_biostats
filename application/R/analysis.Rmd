@@ -1,0 +1,93 @@
+---
+title: "Illustrative Analysis with Stochastic Interventional Effects"
+author: "[Nima Hejazi](https://nimahejazi.org) and [Kara
+  Rudolph](https://kararudolph.github.io/)"
+date: '`r format(Sys.time(), "%Y %b %d (%a), %H:%M:%S")`'
+output:
+  pdf_document
+---
+
+First, let's load necessary packages and some utility functions:
+```{r}
+# load packages and helper files
+library(here)
+library(hal9001)
+library(tidyverse)
+library(SuperLearner)
+source(here("R", "utils.R"))
+set.seed(7518)
+```
+
+Now, let's load the data and take a quick look
+```{r}
+# set shift for incremental propensity score
+delta_ipsi <- 2
+
+# load permuted data from Kara
+data <- read_csv(here("data", "xbot_permuted.csv"))
+head(data)
+```
+
+Hmm, let's also take a look at the exposure (since we've been running into
+bugs):
+```{r}
+# permutation bug: A is all zero for some reason?!
+table(data$A)
+
+# for now, let's just make up an exposure
+data$A <- rbinom(nrow(data), 1, 0.6)
+```
+
+Somewhat inconveniently, we ended up loading a number of helper functions
+related to our simulation code (when we ran (`source(here("R", "utils.R"))`).
+To make sure these don't interfere with our debugging, let's go ahead and remove
+everything but the bare minimum of helper functions and data:
+
+```{r}
+# remove extra stuff from utils.R
+rm(list = setdiff(ls(), c("bound", "truncate", "gfun", "gdeltafun", "gdelta1",
+                          "delta_ipsi", "data")))
+```
+
+With that out of the way, let's also load our Super Learning helper functions
+and code for computing our efficient estimators of the (in)direct effects:
+
+```{r}
+source(here("R", "slfuns.R"))
+source(here("R", "estimate.R"))
+```
+
+Now, let's set some Super Learning libraries. The dataset includes
+`r ncol(data)` columns, which may pose a problem for using the highly adaptive
+lasso. Luckily, none (?) of our theory actually relies on its $n^{-1/4}$
+convergence rate, so we ought to be alright excluding it in a preliminary
+analysis. Based on this, the library `sl_lib` below seems a reasonable choice:
+
+```{r, message=FALSE, warning=FALSE}
+# set up SL library + smaller library for faster debugging
+sl_lib <- c("SL.mean", "SL.bayesglm", "SL.earth", "SL.gam", "SL.glmnet",
+            "SL.caretXGB", "SL.caretRF")
+sl_lib_with_hal <- c(sl_lib, c("SL.myglm", "SL.myglmnet", "SL.hal9001"))
+sl_lib_debug <- c("SL.mean", "SL.bayesglm")
+```
+
+Alright, now we're ready to estimate nuisance parameters and construct our
+estimators -- finally! Let's go ahead with that.
+
+```{r}
+# estimate nuisance parameters
+nuisance <- fitnuisance(data, nfolds = 5, sl_lib = sl_lib_debug)
+
+# construct estimates of (in)direct effects
+out <- estimators(data, delta = delta_ipsi, nuisance, sl_lib = sl_lib_debug)
+out
+```
+
+Reassuringly, the output above seems to indicate pretty good agreement between
+the one-step and TML estimators of the (in)direct effects.
+
+In case we run into reproducibility issues, let's check the R session info:
+
+```{r}
+sessioninfo::session_info()
+```
