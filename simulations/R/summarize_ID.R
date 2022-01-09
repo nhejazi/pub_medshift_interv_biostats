@@ -4,30 +4,6 @@ library(ggplot2)
 library(ggthemes)
 library(grid)
 
-res <- list()
-for(i in 1:1200){
-    ss <- try(load(paste0('output/out', i, '.rda')))
-    if(inherits(ss, 'try-error')) {
-        ## cat('error ', i)
-    } else {
-        rtemp <- get(paste0('r', i))
-        if(any(sapply(rtemp, length) == 1)) print(i)
-        res <- c(res, rtemp)
-    }
-}
-
-out <- rbindlist(res[sapply(res, length) > 1])
-
-## out %>% filter(estimator == 'TMLE', n == 16200, parameter == 'DE', type == 1) %>%
-##     pull(estimate) %>% hist()
-
-## out %>% filter(estimator == 'TMLE', n == 16200, parameter == 'DE', type == 4) %>%
-##     pull(estimate) %>% mean()
-
-load('true.rda')
-## source('utils.r')
-## true <- truth(1e7)
-## save(true, file = 'true.rda')
 alpha <- 0.05
 dplot <- out %>% left_join(true, by = 'parameter') %>%
     group_by(type, parameter, estimator, n) %>%

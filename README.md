@@ -3,7 +3,7 @@ analysis for stochastic interventional (in)direct
 effects"](https://arxiv.org/abs/2009.06203) by [N.S.
 Hejazi](https://nimahejazi.org/), [K.E.
 Rudolph](https://kararudolph.github.io/), [M.J. van der
-Laan](https://vanderlaan-lab.org/), and [I. Diaz](https://www.idiaz.xyz/) in
+Laan](https://vanderlaan-lab.org/), and [I. Díaz](https://www.idiaz.xyz/) in
 _Biostatistics_ (2022)
 
 * To reproduce the simulation study reported in the manuscript, examine the
