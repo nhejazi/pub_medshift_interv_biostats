@@ -20,8 +20,8 @@ estimators <- function(data,
                        m_stack,
                        b_stack,
                        d_stack,
-                       cv_folds = 5,
-                       tiltmod_tol = 100) {
+                       cv_folds = 5L,
+                       tiltmod_tol = 10) {
   ## extract data
   data <- data.table::as.data.table(data)
   w_names <- stringr::str_detect(names(data), "W")
@@ -38,15 +38,17 @@ estimators <- function(data,
   names_w <- stringr::str_subset(colnames(data), "W")
 
   ## instantiate HAL and GLM for pseudo-outcome regressions
-  hal_learner <- Lrnr_hal9001$new(max_degree = NULL,
-                                  n_folds = 5,
+  hal_learner <- Lrnr_hal9001$new(max_degree = 4L,
+                                  n_folds = 10L,
                                   fit_type = "glmnet",
-                                  use_min = FALSE,
+                                  family = "gaussian",
+                                  cv_select = TRUE,
+                                  reduce_basis = 0.01,
+                                  return_lasso = FALSE,
                                   type.measure = "mse",
                                   standardize = FALSE,
-                                  family = "gaussian",
-                                  lambda.min.ratio = 1 / n_obs,
-                                  nlambda = 1000,
+                                  lambda.min.ratio = 1e-4,
+                                  nlambda = 1000L,
                                   yolo = FALSE)
 
   ## fit nuisance function estimators
@@ -67,9 +69,10 @@ estimators <- function(data,
   e <- unname(unlist(A * e1 + (1 - A) * (1 - e1)))
   b <- unname(unlist(L * b1A + (1 - L) * (1 - b1A)))
   d <- unname(unlist(L * d1A + (1 - L) * (1 - d1A)))
-  m <- nuisance_fits$cv_preds$m_preds
+  m <- nuisance_fits$cv_preds$m_preds[reorder_by_val_idx]
 
   ## compute cross-validated counterfactual predictions
+  # NOTE: notation renamed, so...
   bdm_cv_cf_preds <- lapply(seq_along(val_idx), function(fold_idx) {
     ## predict for b
     b0_task <- sl3::sl3_Task$new(
@@ -226,15 +229,15 @@ estimators <- function(data,
 
       # counterfactual tasks
       s_task_L1 <- sl3_Task$new(
-        data = v_data[val_idx[[fold_idx]], ][, L := 1][],
+        data = s_data[val_idx[[fold_idx]], ][, L := 1][],
         covariates = c(names_w, "A", "L"),
-        outcome = "vout",
+        outcome = "sout",
         outcome_type = "gaussian"
       )
       s_task_L0 <- sl3_Task$new(
-        data = v_data[val_idx[[fold_idx]], ][, L := 0][],
+        data = s_data[val_idx[[fold_idx]], ][, L := 0][],
         covariates = c(names_w, "A", "L"),
-        outcome = "vout",
+        outcome = "sout",
         outcome_type = "gaussian"
       )
 
@@ -297,6 +300,7 @@ estimators <- function(data,
     ubar0 <- ubar_cv_cf_preds$ubar0
   }
 
+  # NOTE: the next bit is only relevant to IPSI's
   ubarA <- A * ubar1 + (1 - A) * ubar0
   q1 <- ubar1 - ubar0
 
@@ -439,6 +443,7 @@ estimators <- function(data,
       max(c(sd(eifDp), sd(eifIp))) * log(n_obs) / n_obs | iter > 6
   }
 
+  #browser()
   J <- - gdelta / g
   J1 <- - g1delta / g1
   J0 <- - (1 - g1delta) / (1 - g1)
