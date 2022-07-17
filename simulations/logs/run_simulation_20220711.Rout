@@ -1,0 +1,104 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # virtual environment and packages
+> Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="true")
+> renv::activate(here::here(".."))
+* Project '~/medshift_interv_meta' loaded. [renv 0.15.5]
+> library(here)
+here() starts at /global/home/users/nhejazi/medshift_interv_meta/simulations
+> library(data.table)
+> library(foreach)
+> library(future)
+> library(doFuture)
+> library(doRNG)
+Loading required package: rngtools
+> library(hal9001)
+Loading required package: Rcpp
+hal9001 v0.2.7: The Scalable Highly Adaptive Lasso
+> library(origami)
+origami v1.0.5: Generalized Framework for Cross-Validation
+> library(sl3)
+> library(SuperLearner)
+Loading required package: nnls
+Loading required package: gam
+Loading required package: splines
+Loaded gam 1.20.2
+
+Super Learner
+Version: 2.0-28
+Package created on 2021-05-04
+
+> library(tidyverse)
+── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──
+✔ ggplot2 3.3.6     ✔ purrr   0.3.4
+✔ tibble  3.1.7     ✔ dplyr   1.0.9
+✔ tidyr   1.2.0     ✔ stringr 1.4.0
+✔ readr   2.1.2     ✔ forcats 0.5.1
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ purrr::accumulate() masks foreach::accumulate()
+✖ dplyr::between()    masks data.table::between()
+✖ dplyr::filter()     masks stats::filter()
+✖ dplyr::first()      masks data.table::first()
+✖ dplyr::lag()        masks stats::lag()
+✖ dplyr::last()       masks data.table::last()
+✖ purrr::transpose()  masks data.table::transpose()
+✖ purrr::when()       masks foreach::when()
+> devtools::load_all(here("..", "intmedlite"))
+ℹ Loading intmedlite
+> 
+> # load scripts, parallelization, PRNG
+> source(here("R", "01_setup_data.R"))
+> source(here("R", "02_fit_estimators.R"))
+> setDTthreads(2L)
+> registerDoFuture()
+> plan(multicore, workers = round(0.8 * availableCores()))
+> 
+> # simulation parameters
+> set.seed(7259)
+> n_sim <- 400                                  # number of simulations
+> n_obs <- c(400, 800, 1600, 2400, 3200)        # sample sizes
+> ipsi_delta <- 2                               # IPSI shift
+> 
+> # perform simulation across sample sizes
+> sim_results <- lapply(n_obs, function(sample_size) {
++   # get results in parallel
++   results <- foreach(this_iter = seq_len(n_sim),
++                      .options.multicore = list(preschedule = FALSE),
++                      .errorhandling = "remove") %dorng% {
++     data_sim <- sim_data(n_obs = sample_size)
++     est_out <- fit_estimators(data = data_sim, delta = ipsi_delta)
++     return(est_out)
++   }
++ 
++   # concatenate iterations
++   results_out <- bind_rows(results, .id = "sim_iter")
++   return(results_out)
++ })
+There were 50 or more warnings (use warnings() to see the first 50)
+> 
+> # save results to file
+> names(sim_results) <- paste("n", n_obs, sep = "_")
+> timestamp <- str_replace_all(Sys.time(), " ", "_")
+> saveRDS(object = sim_results,
++         file = here("data", paste0("lite_intmedshift_", timestamp, ".rds")))
+> 
+> proc.time()
+      user     system    elapsed 
+6336220.76   66670.27  202939.36 

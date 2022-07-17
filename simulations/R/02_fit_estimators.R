@@ -6,15 +6,17 @@ fit_estimators <- function(data, delta, cv_folds = 5) {
   #       that I am using 'mse' for the loss function (default is 'deviance'),
   #       I’m using 'use_min = FALSE' + I increased the value of 'nlambda'."
   ## NOTE: need to force `family = "gaussian"` to use `lambda.min.ratio`
-  hal_lrnr <- Lrnr_hal9001$new(max_degree = NULL,
-                               n_folds = 5,
+  hal_lrnr <- Lrnr_hal9001$new(max_degree = 4L,
+                               n_folds = 10L,
                                fit_type = "glmnet",
-                               use_min = FALSE,
+                               family = "gaussian",
+                               cv_select = TRUE,
+                               reduce_basis = 0.01,
+                               return_lasso = FALSE,
                                type.measure = "mse",
                                standardize = FALSE,
-                               family = "gaussian",
-                               lambda.min.ratio = 1 / nrow(data),
-                               nlambda = 1000,
+                               lambda.min.ratio = 1e-4,
+                               nlambda = 1000L,
                                yolo = FALSE)
   source(here::here("R", "sl_ID.R"))
   myglmnet_lrnr <- make_learner(Lrnr_pkg_SuperLearner, "SL.myglmnet")
@@ -27,9 +29,11 @@ fit_estimators <- function(data, delta, cv_folds = 5) {
                                        loss_loglik_binomial)
 
   # set nuisance regression learners based on ID's successful simulations
-  sl <- Lrnr_sl$new(learners = list(myglmnet_lrnr, myglm_lrnr, hal_lrnr),
-                    metalearner = Lrnr_nnls$new())
-                    #metalearner = logistic_metalearner)
+  sl <- Lrnr_sl$new(
+    learners = list(myglmnet_lrnr, myglm_lrnr, mean_lrnr, hal_lrnr),
+    metalearner = Lrnr_nnls$new()
+    #metalearner = logistic_metalearner
+  )
 
   # compute TML and one-step estimators
   ## 1) all nuisance functions correctly specified

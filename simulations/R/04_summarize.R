@@ -1,4 +1,6 @@
 # packages and programmatic housekeeping
+Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="true")
+renv::activate(here::here(".."))
 library(here)
 library(data.table)
 library(ggthemes)
@@ -12,7 +14,7 @@ library(patchwork)
 pd <- position_dodge(0.2)
 
 # results file and simulation settings
-sim_file <- "lite_intmedshift_2020-04-08_03:24:15.rds"
+sim_file <- "lite_intmedshift_2022-07-13_19:31:28.rds"
 ipsi_delta <- 2
 
 # compute truth based on DGP
@@ -96,7 +98,7 @@ table_summary_sim <- sim_res_clean %>%
   mutate(
     bias_abs_sqrtn = bias_abs * sqrt(n_samp),
     mc_se_sqrtn = sqrt(mc_var * n_samp),
-    mse_n = sqrt(mse * n_samp),
+    mse_n = mse * n_samp,
     true_psi = case_when(parameter == "direct" ~ as.numeric(truth[1, 2]),
                          parameter == "indirect" ~ as.numeric(truth[2, 2])),
     eff_var = case_when(parameter == "direct" ~ as.numeric(truth[1, 3]),
@@ -111,7 +113,8 @@ p_bias_scaled <- table_summary_sim %>%
     geom_point(alpha = 0.75, size = 7, position = pd) +
     geom_line(linetype = "dotted", position = pd) +
     geom_hline(yintercept = 0, linetype = "dashed", colour = "black") +
-    labs(x = "Sample Size",
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Sample size",
          y = TeX("$\\sqrt{n} \\times$ |$\\psi - \\hat{\\psi}$|"),
          title = "Scaled bias of one-step and TML estimators"
         ) +
@@ -123,9 +126,10 @@ p_bias_scaled <- table_summary_sim %>%
           legend.position = "bottom",
           legend.title = element_blank(),
           text = element_text(size = 28),
-          axis.text.x = element_text(size = 28, angle = 30, hjust = 1),
-          axis.text.y = element_text(size = 28)
+          axis.text.x = element_text(size = 20, angle = 45, hjust = 1),
+          axis.text.y = element_text(size = 25)
          ) +
+    scale_y_continuous(breaks = seq(0, 2, by = 0.2)) +
     facet_grid(param_label ~ sim_scenario, scales = "free_y")
 ggsave(filename = here("graphs", "bias_scaled.pdf"),
        plot = p_bias_scaled, width = 22, height = 14)
@@ -136,7 +140,8 @@ p_sd_scaled <- table_summary_sim %>%
              shape = estim_label, colour = estim_label, fill = estim_label)) +
     geom_point(alpha = 0.75, size = 7, position = pd) +
     geom_line(linetype = "dotted", position = pd) +
-    geom_hline(yintercept = 0, linetype = "dashed", colour = "black") +
+    #geom_hline(yintercept = 0, linetype = "dashed", colour = "black") +
+    coord_cartesian(ylim = c(0, 3)) +
     labs(x = "Sample Size",
          y = TeX("$\\sqrt{n \\times Var(\\hat{\\psi})}$"),
          title = "Scaled variance of one-step and TML estimators"
@@ -149,8 +154,8 @@ p_sd_scaled <- table_summary_sim %>%
           legend.position = "bottom",
           legend.title = element_blank(),
           text = element_text(size = 28),
-          axis.text.x = element_text(size = 28, angle = 30, hjust = 1),
-          axis.text.y = element_text(size = 28)
+          axis.text.x = element_text(size = 20, angle = 45, hjust = 1),
+          axis.text.y = element_text(size = 25)
          ) +
     facet_grid(param_label ~ sim_scenario, scales = "free_y")
 ggsave(filename = here("graphs", "sd_scaled.pdf"),
@@ -176,14 +181,17 @@ p_mse_scaled <- table_summary_sim %>%
           legend.position = "bottom",
           legend.title = element_blank(),
           text = element_text(size = 28),
-          axis.text.x = element_text(size = 28, angle = 30, hjust = 1),
-          axis.text.y = element_text(size = 28)
+          axis.text.x = element_text(size = 20, angle = 45, hjust = 1),
+          axis.text.y = element_text(size = 25)
          ) +
+    scale_y_continuous(breaks = seq(0, 5, by = 0.5)) +
+    coord_cartesian(ylim = c(0, 3)) +
     facet_grid(param_label ~ sim_scenario, scales = "free_y")
 ggsave(filename = here("graphs", "mse_scaled.pdf"),
        plot = p_mse_scaled, width = 22, height = 14)
 
 # SUMMARY PANEL PLOT (BIAS, VARIANCE, MSE)
-#p_panel <- p_bias_scaled / p_sd_scaled / p_mse_scaled
-#ggsave(filename = here("graphs", "sim_panel.pdf"),
-       #plot = p_panel, width = 22, height = 14)
+p_panel <- (p_bias_scaled + xlab("") + theme(legend.position = "none")) /
+            p_mse_scaled
+ggsave(filename = here("graphs", "sim_panel.pdf"),
+       plot = p_panel, width = 28, height = 20)

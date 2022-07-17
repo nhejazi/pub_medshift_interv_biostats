@@ -1,30 +1,30 @@
-# use custom package library on Savio cluster
-.libPaths("/global/scratch/nhejazi/R")
+# virtual environment and packages
 Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="true")
-
-# packages
+renv::activate(here::here(".."))
 library(here)
+library(data.table)
 library(foreach)
 library(future)
 library(doFuture)
 library(doRNG)
-library(data.table)
-library(tidyverse)
 library(hal9001)
 library(origami)
 library(sl3)
+library(SuperLearner)
+library(tidyverse)
 devtools::load_all(here("..", "intmedlite"))
 
 # load scripts, parallelization, PRNG
 source(here("R", "01_setup_data.R"))
 source(here("R", "02_fit_estimators.R"))
+setDTthreads(2L)
 registerDoFuture()
-plan(multiprocess, workers = 24)
+plan(multicore, workers = round(0.8 * availableCores()))
 
 # simulation parameters
 set.seed(7259)
-n_sim <- 500                                  # number of simulations
-n_obs <- cumsum(rep(sqrt(200), 4))^2          # sample sizes at root-n scale
+n_sim <- 400                                  # number of simulations
+n_obs <- c(400, 800, 1600, 2400, 3200)        # sample sizes
 ipsi_delta <- 2                               # IPSI shift
 
 # perform simulation across sample sizes
